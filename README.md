@@ -49,5 +49,5 @@ Example
 
 Returns a list of machines in the networks with the port open: 
 
-   $ go run test.go 
-   [192.168.1.2 192.168.0.2]
+    $ go run test.go 
+    [192.168.1.2 192.168.0.2]
