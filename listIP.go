@@ -36,8 +36,10 @@ func (n *IPList) fill(ip net.IP, ipnet *net.IPNet) {
 		n.ip = append(n.ip, novaIP)
 
 	}
-	// Remove broadcast
-	n.ip = n.ip[0 : len(n.ip)-1]
+	// Remove broadcast if any ...
+	if len(n.ip) > 0 {
+		n.ip = n.ip[0 : len(n.ip)-1]
+	}
 
 }
 
