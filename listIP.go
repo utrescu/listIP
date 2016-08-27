@@ -18,10 +18,16 @@ type IPList struct {
 	alive []string
 }
 
+func (n *IPList) fill(ip net.IP) {
+	novaIP := make(net.IP, len(ip))
+	copy(novaIP, ip)
+	n.ip = append(n.ip, novaIP)
+}
+
 /*
-  fill: fills all network adresses
+  fillNetwork: fills all network adresses
 */
-func (n *IPList) fill(ip net.IP, ipnet *net.IPNet) {
+func (n *IPList) fillNetwork(ip net.IP, ipnet *net.IPNet) {
 	notfirst := false
 	for ip := ip.Mask(ipnet.Mask); ipnet.Contains(ip); inc(ip) {
 
@@ -107,10 +113,17 @@ func Check(rangs []string, port int, timeout string) []string {
 
 	for rang := range rangs {
 		ip, ipnet, err := net.ParseCIDR(rangs[rang])
-		if err != nil {
-			log.Fatal(err)
+		if err == nil {
+			ips.fillNetwork(ip, ipnet)
+		} else {
+			ip := net.ParseIP(rangs[rang])
+			if ip != nil {
+				ips.fill(ip)
+			} else {
+				log.Fatal("Address not in IP nor CIDR format:", rangs[rang])
+			}
 		}
-		ips.fill(ip, ipnet)
+
 	}
 
 	ips.comprovaHostsVius(port, timeout)

@@ -1,8 +1,9 @@
 ListIP
 =====================
-Go package to scan for an open port in network ranges. 
+Go package to scan for an open port in network ranges or single IPs. 
 
 * Which machines have the SSH server opened in my network?
+* Has 192.168.0.1 the port 80 opened?
 
 Install
 ---------------
@@ -37,7 +38,7 @@ Example
 
     func main() {
 
-        var rangs = []string{"192.168.1.0/24", "192.168.0.0/24"}
+        var rangs = []string{"192.168.1.0/24", "192.168.0.0/24", "192.168.9.1"}
         portNumber := 22
         timeout := "250ms"
 
