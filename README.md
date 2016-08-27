@@ -1,8 +1,8 @@
 ListIP
 =====================
-Go package to scan for an open port in a network.
+Go package to scan for an open port in network ranges. 
 
-Only exposes a single method (I'm testing Golang)
+* Which machines have the SSH server opened in my network?
 
 Install
 ---------------
@@ -21,7 +21,7 @@ The package only exposes the method 'Comprova' to check for an open port in a li
 
 Where: 
 
-* **rangs**: list of networks in CIDR format. Ex. [192.168.0.0/24 192.168.1.1/28]
+* **rangs**: list of networks ranges in CIDR format. Ex. [192.168.0.0/24 192.168.1.1/28]
 * **port**: Port to check
 * **timeout**: Time to wait for mark a port as closed. Ex. "250ms" 
 
@@ -46,7 +46,7 @@ Example
         fmt.Println(results)
     }
 
-Returns a list with machines in the networks with the open port: 
+Returns a list of machines in the networks with the port open: 
 
    $ go run test.go 
    [192.168.1.2 192.168.0.2]
