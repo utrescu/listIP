@@ -13,18 +13,23 @@ Install with:
 
 Use
 -----------------
-The package only exposes the method 'Comprova' to check for an open port in a list of networks
+The package only exposes the method 'Check' to check for an open port in a list of networks
 
     func Check(
-      rangs []string, 
-      port int, 
-      timeout string) []string 
+      rangs []string,
+      port int,
+      timeout string) []string
 
-Where: 
+Where:
 
 * **rangs**: list of networks ranges in CIDR format. Ex. [192.168.0.0/24 192.168.1.1/28]
-* **port**: Port to check
-* **timeout**: Time to wait for mark a port as closed. Ex. "250ms" 
+* **port**: Port to check. Ex. 22
+* **timeout**: Time to wait for mark a port as closed. Ex. "250ms"
+
+Returns two string lists:
+
+1. A list of hosts with the open port
+2. A list with the failed hosts
 
 Example
 --------------
@@ -42,12 +47,12 @@ Example
         portNumber := 22
         timeout := "250ms"
 
-        results := listIP.Check(rangs, portNumber, timeout)
+        results, _ := listIP.Check(rangs, portNumber, timeout)
 
         fmt.Println(results)
     }
 
-Returns a list of machines in the networks with the port open: 
+Returns a list of machines in the networks with the port open:
 
-    $ go run test.go 
+    $ go run test.go
     [192.168.1.2 192.168.0.2]
