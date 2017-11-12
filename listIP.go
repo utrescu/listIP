@@ -1,6 +1,7 @@
 package listIP
 
 import (
+	"encoding/binary"
 	"log"
 	"net"
 	"strconv"
@@ -29,11 +30,19 @@ func (n *IPList) fill(ip net.IP) {
 */
 func (n *IPList) fillNetwork(ip net.IP, ipnet *net.IPNet) {
 	notfirst := false
+
+	prefix := &net.IPNet{IP: ip.Mask(ipnet.Mask), Mask: ipnet.Mask}
+	broadcastAddr := lastAddr(prefix)
+
 	for ip := ip.Mask(ipnet.Mask); ipnet.Contains(ip); inc(ip) {
 
 		if !notfirst {
 			// remove network address
 			notfirst = true
+			continue
+		}
+		// Skip broadcast address
+		if ip.Equal(broadcastAddr) {
 			continue
 		}
 		novaIP := make(net.IP, len(ip))
@@ -42,11 +51,6 @@ func (n *IPList) fillNetwork(ip net.IP, ipnet *net.IPNet) {
 		n.ip = append(n.ip, novaIP)
 
 	}
-	// Remove broadcast if any ...
-	if len(n.ip) > 0 {
-		n.ip = n.ip[0 : len(n.ip)-1]
-	}
-
 }
 
 func inc(ip net.IP) {
@@ -101,8 +105,17 @@ func estaViu(ip net.IP, port int, timeout string, outChan chan<- string) {
 	if err == nil {
 		outChan <- ip.String()
 		conn.Close()
+	} else {
+		log.Println(err.Error())
 	}
 	return
+}
+
+/* Determine last address */
+func lastAddr(n *net.IPNet) net.IP {
+	ip := make(net.IP, len(n.IP.To4()))
+	binary.BigEndian.PutUint32(ip, binary.BigEndian.Uint32(n.IP.To4())|^binary.BigEndian.Uint32(net.IP(n.Mask).To4()))
+	return ip
 }
 
 /*
