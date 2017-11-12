@@ -133,3 +133,29 @@ func Check(rangs []string, port int, timeout string) []string {
 
 	return ips.alive
 }
+
+/*
+CheckFullStatus returns a IPList structs with alives and failed IPs in a range
+*/
+func CheckFullStatus(rangs []string, port int, timeout string) IPList {
+	var ips IPList
+
+	for rang := range rangs {
+		ip, ipnet, err := net.ParseCIDR(rangs[rang])
+		if err == nil {
+			ips.fillNetwork(ip, ipnet)
+		} else {
+			ip := net.ParseIP(rangs[rang])
+			if ip != nil {
+				ips.fill(ip)
+			} else {
+				log.Fatal("Address not in IP nor CIDR format:", rangs[rang])
+			}
+		}
+
+	}
+
+	ips.testAliveHosts(port, timeout)
+
+	return ips
+}
