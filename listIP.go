@@ -135,7 +135,7 @@ func Check(rangs []string, port int, timeout string) []string {
 }
 
 /*
-CheckFullStatus returns a IPList structs with alives and failed IPs in a range
+CheckFullStatus returns a IPList struct with alives and failed IPs in a range
 */
 func CheckFullStatus(rangs []string, port int, timeout string) IPList {
 	var ips IPList
