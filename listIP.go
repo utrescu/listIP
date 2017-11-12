@@ -5,18 +5,14 @@ import (
 	"log"
 	"net"
 	"strconv"
-	"sync"
 	"time"
 )
 
-var wg sync.WaitGroup
-
-/*
-IPList: Struct to work with
-*/
+// IPList : Struct to work with
 type IPList struct {
 	ip    []net.IP
 	alive []string
+	fail  []string
 }
 
 func (n *IPList) fill(ip net.IP) {
@@ -62,56 +58,50 @@ func inc(ip net.IP) {
 	}
 }
 
-func rebreResultats(outChan <-chan string, resultChan chan<- []string) {
-	var alives []string
+// testAliveHosts: Checks if a host is Alive. fills an IPList struct
+func (n *IPList) testAliveHosts(port int, timeout string) {
 
-	for s := range outChan {
-		alives = append(alives, s)
-	}
-
-	resultChan <- alives
-}
-
-func (n *IPList) comprovaHostsVius(port int, timeout string) {
-
-	outChan := make(chan string, len(n.ip))
-	resultChan := make(chan []string)
+	messages, errc := make(chan string), make(chan error)
 
 	numHosts := len(n.ip)
 
-	wg.Add(numHosts)
-
 	for i := 0; i < numHosts; i++ {
-		go estaViu(n.ip[i], port, timeout, outChan)
+		go isAlive(n.ip[i], port, timeout, messages, errc)
 	}
 
-	wg.Wait()
+	var alives []string
+	var faileds []string
 
-	// Per poder fer servir el rang
-	close(outChan)
+	for i := 0; i < len(n.ip); i++ {
+		select {
+		case res := <-messages:
+			alives = append(alives, res)
+		case err := <-errc:
+			faileds = append(faileds, err.Error())
+			// log.Println(err.Error())
+		}
+	}
 
-	go rebreResultats(outChan, resultChan)
-	n.alive = <-resultChan
+	n.alive = alives
+	n.fail = faileds
 }
 
-func estaViu(ip net.IP, port int, timeout string, outChan chan<- string) {
-
-	defer wg.Done()
+// isAlive : test if a IP answers in a port
+func isAlive(ip net.IP, port int, timeout string, messages chan string, errc chan error) {
 	timeoutDuration, err := time.ParseDuration(timeout)
 
 	connexio := ip.String() + ":" + strconv.Itoa(port)
 
 	conn, err := net.DialTimeout("tcp", connexio, timeoutDuration)
-	if err == nil {
-		outChan <- ip.String()
-		conn.Close()
-	} else {
-		log.Println(err.Error())
+	if err != nil {
+		errc <- err
+		return
 	}
-	return
+	messages <- ip.String()
+	conn.Close()
 }
 
-/* Determine last address */
+/* Determine last address of a range */
 func lastAddr(n *net.IPNet) net.IP {
 	ip := make(net.IP, len(n.IP.To4()))
 	binary.BigEndian.PutUint32(ip, binary.BigEndian.Uint32(n.IP.To4())|^binary.BigEndian.Uint32(net.IP(n.Mask).To4()))
@@ -139,7 +129,7 @@ func Check(rangs []string, port int, timeout string) []string {
 
 	}
 
-	ips.comprovaHostsVius(port, timeout)
+	ips.testAliveHosts(port, timeout)
 
 	return ips.alive
 }
