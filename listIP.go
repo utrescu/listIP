@@ -8,6 +8,9 @@ import (
 	"time"
 )
 
+// Number of parallel connections
+const paralel = 32
+
 // IPList : Struct to work with
 type IPList struct {
 	ip    []net.IP
@@ -66,20 +69,22 @@ func inc(ip net.IP) {
 }
 
 // testAliveHosts: Checks if a host is Alive. fills an IPList struct
-func (n *IPList) testAliveHosts(port int, timeout string) {
-
-	messages, errc := make(chan string), make(chan error)
+func (n *IPList) testAliveHosts(port int, parallelconnections int, timeout time.Duration) {
 
 	numHosts := len(n.ip)
+	messages, errc := make(chan string, numHosts), make(chan error, numHosts)
 
 	for i := 0; i < numHosts; i++ {
 		go isAlive(n.ip[i], port, timeout, messages, errc)
+		if i%parallelconnections == 0 {
+			time.Sleep(timeout)
+		}
 	}
 
 	var alives []string
 	var faileds []string
 
-	for i := 0; i < len(n.ip); i++ {
+	for i := 0; i < numHosts; i++ {
 		select {
 		case res := <-messages:
 			alives = append(alives, res)
@@ -94,12 +99,11 @@ func (n *IPList) testAliveHosts(port int, timeout string) {
 }
 
 // isAlive : test if a IP answers in a port
-func isAlive(ip net.IP, port int, timeout string, messages chan string, errc chan error) {
-	timeoutDuration, err := time.ParseDuration(timeout)
+func isAlive(ip net.IP, port int, timeout time.Duration, messages chan string, errc chan error) {
 
 	connexio := ip.String() + ":" + strconv.Itoa(port)
 
-	conn, err := net.DialTimeout("tcp", connexio, timeoutDuration)
+	conn, err := net.DialTimeout("tcp", connexio, timeout)
 	if err != nil {
 		errc <- err
 		return
@@ -118,9 +122,17 @@ func lastAddr(n *net.IPNet) net.IP {
 /*
 Check a list of CIDR networks for the specified port open
 
-returns two lists: alives, failed
+params:
+  - rangs: List of IP addresses or ranges in CIDR format
+  - port: Port to test
+  - parallelconnections: Number of parallel connections
+  - timeout: defines the network timeout
+
+returns:
+  - list of alive hosts
+  - list of failed hosts
 */
-func Check(rangs []string, port int, timeout string) ([]string, []string) {
+func Check(rangs []string, port int, parallelconnections int, timeout string) ([]string, []string) {
 	var ips IPList
 
 	for rang := range rangs {
@@ -138,7 +150,16 @@ func Check(rangs []string, port int, timeout string) ([]string, []string) {
 
 	}
 
-	ips.testAliveHosts(port, timeout)
+	if parallelconnections <= 0 {
+		parallelconnections = paralel
+	}
+
+	timeoutDuration, err := time.ParseDuration(timeout)
+	if err != nil {
+		log.Fatal("Incorrect timeout")
+	}
+
+	ips.testAliveHosts(port, parallelconnections, timeoutDuration)
 
 	return ips.alive, ips.fail
 }
