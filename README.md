@@ -1,19 +1,19 @@
 ListIP
 =====================
-Go package to scan for an open port in network ranges or single IPs. 
+Golang Package that allows you to scan if a port is open in individual IPs or in network ranges.
 
 * Which machines have the SSH server opened in my network?
 * Has 192.168.0.1 the port 80 opened?
 
 Install
 ---------------
-Install with: 
+Install with:
 
     $ go install github.com/utrescu/ListIP
 
 Use
 -----------------
-The package only exposes the method 'Check' to check for an open port in a list of networks
+The package only exposes the method 'Check' to test for an open port:
 
     func Check(
       rangs []string,
@@ -22,9 +22,9 @@ The package only exposes the method 'Check' to check for an open port in a list 
 
 Where:
 
-* **rangs**: list of networks ranges in CIDR format. Ex. [192.168.0.0/24 192.168.1.1/28]
+* **rangs**: list of networks ranges in CIDR format or single IPs. Ex. [192.168.0.0/24 192.168.1.1/28 192.168.10.23]
 * **port**: Port to check. Ex. 22
-* **timeout**: Time to wait for mark a port as closed. Ex. "250ms"
+* **timeout**: Time to wait to receive a response. Ex. "250ms"
 
 Returns two string lists:
 

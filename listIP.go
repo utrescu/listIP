@@ -15,30 +15,37 @@ type IPList struct {
 	fail  []string
 }
 
-func (n *IPList) fill(ip net.IP) {
+// fillIP :	Adds a sigle IP to IPList
+func (n *IPList) fillIP(ip net.IP) {
+	if ip == nil {
+		return
+	}
 	novaIP := make(net.IP, len(ip))
 	copy(novaIP, ip)
 	n.ip = append(n.ip, novaIP)
 }
 
-/*
-  fillNetwork: fills all network adresses
-*/
+//  fillNetwork: fills network adresses in IPList
 func (n *IPList) fillNetwork(ip net.IP, ipnet *net.IPNet) {
-	notfirst := false
+
+	// skip nil values
+	if ip == nil || ipnet == nil {
+		return
+	}
+
+	// It's a single IP ...
+	if ipnet.Mask.String() == net.CIDRMask(32, 32).String() {
+		n.fillIP(ip)
+		return
+	}
 
 	prefix := &net.IPNet{IP: ip.Mask(ipnet.Mask), Mask: ipnet.Mask}
 	broadcastAddr := lastAddr(prefix)
 
 	for ip := ip.Mask(ipnet.Mask); ipnet.Contains(ip); inc(ip) {
 
-		if !notfirst {
-			// remove network address
-			notfirst = true
-			continue
-		}
-		// Skip broadcast address
-		if ip.Equal(broadcastAddr) {
+		// Skip broadcast and network addresses
+		if ip.Equal(broadcastAddr) || ip.Equal(ipnet.IP) {
 			continue
 		}
 		novaIP := make(net.IP, len(ip))
@@ -123,7 +130,7 @@ func Check(rangs []string, port int, timeout string) ([]string, []string) {
 		} else {
 			ip := net.ParseIP(rangs[rang])
 			if ip != nil {
-				ips.fill(ip)
+				ips.fillIP(ip)
 			} else {
 				log.Fatal("Address not in IP nor CIDR format:", rangs[rang])
 			}
