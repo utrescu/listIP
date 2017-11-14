@@ -154,21 +154,22 @@ func TestIfAliveHostsWorksWithIPs(t *testing.T) {
 
 // ============= Testing CHECK() ========================================
 
-// -------------------  Test Check with incorrect dada ...
-var tests = []struct {
-	networks []string
-	expected int
-}{
-	{[]string{"192.168.0.2"}, 1},
-	{[]string{"192.168.0.2/32"}, 1},
-	{[]string{"192.168.0.0/24"}, 254},
-	{[]string{"192.168.0.0/29"}, 6},
-	{[]string{"192.168.0.1", "192.168.0.2"}, 2},
-	{[]string{"192.168.0.0/24", "192.168.1.0/24", "192.168.2.0/24"}, 254 * 3},
-}
-
 // TestIfCheckWorksWithCorrectData : Comprova que test retorna valors a partir de dades correctes
 func TestIfCheckWorksWithCorrectData(t *testing.T) {
+
+	// -------------------  Test Check with incorrect dada ...
+	var tests = []struct {
+		networks []string
+		expected int
+	}{
+		{[]string{"192.168.0.2"}, 1},
+		{[]string{"192.168.0.2/32"}, 1},
+		{[]string{"192.168.0.0/24"}, 254},
+		{[]string{"192.168.0.0/29"}, 6},
+		{[]string{"192.168.0.1", "192.168.0.2"}, 2},
+		{[]string{"192.168.0.0/24", "192.168.1.0/24", "192.168.2.0/24"}, 254 * 3},
+	}
+
 	aliveOld := alive
 	defer func() {
 		alive = aliveOld
@@ -189,25 +190,25 @@ func TestIfCheckWorksWithCorrectData(t *testing.T) {
 	}
 }
 
-// -------------------  Test Check with incorrect data ...
-var errortests = []struct {
-	networks []string
-	port     int
-	paralel  int
-	duration string
-	resultat bool
-}{
-	{[]string{"192.168.0.2"}, 22, 1, "5ms", false},
-	{[]string{"192.168.0.2/24"}, 22, 1, "5ms", false},
-	{[]string{"192.168.0.2"}, 22, 1, "xxx", true},
-	{[]string{"192.168.0.2"}, -1, 1, "5ms", true},
-	{[]string{"192.168.0.2"}, 22, -1, "5ms", false},
-	{nil, 22, 10, "5ms", true},
-	{[]string{"344444444444"}, 22, 1, "20ms", true},
-}
-
 // TestIfCheckWorksWithIncorrectData checks if providing incorrect data gives error
 func TestIfCheckWorksWithIncorrectData(t *testing.T) {
+
+	// -------------------  Test Check with incorrect data ...
+	var errortests = []struct {
+		networks []string
+		port     int
+		paralel  int
+		duration string
+		resultat bool
+	}{
+		{[]string{"192.168.0.2"}, 22, 1, "5ms", false},
+		{[]string{"192.168.0.2/24"}, 22, 1, "5ms", false},
+		{[]string{"192.168.0.2"}, 22, 1, "xxx", true},
+		{[]string{"192.168.0.2"}, -1, 1, "5ms", true},
+		{[]string{"192.168.0.2"}, 22, -1, "5ms", false},
+		{nil, 22, 10, "5ms", true},
+		{[]string{"344444444444"}, 22, 1, "20ms", true},
+	}
 
 	aliveOld := alive
 	defer func() {
