@@ -69,7 +69,7 @@ func inc(ip net.IP) {
 }
 
 // testAliveHosts: Checks if a host is Alive. fills an IPList struct
-func (n *IPList) testAliveHosts(port int, parallelconnections int, timeout time.Duration) {
+func (n *IPList) checkAliveHosts(port int, parallelconnections int, timeout time.Duration) {
 
 	numHosts := len(n.ip)
 	messages, errc := make(chan string, numHosts), make(chan error, numHosts)
@@ -138,6 +138,19 @@ returns:
 func Check(rangs []string, port int, parallelconnections int, timeout string) ([]string, []string, error) {
 	var ips IPList
 
+	if len(rangs) == 0 {
+		return nil, nil, errors.New("No IPs provided")
+	}
+
+	timeoutDuration, err := time.ParseDuration(timeout)
+	if err != nil {
+		return nil, nil, errors.New("Incorrect timeout")
+	}
+
+	if port <= 0 {
+		return nil, nil, errors.New("Incorrect port ")
+	}
+
 	for rang := range rangs {
 		ip, ipnet, err := net.ParseCIDR(rangs[rang])
 		if err == nil {
@@ -147,22 +160,17 @@ func Check(rangs []string, port int, parallelconnections int, timeout string) ([
 			if ip != nil {
 				ips.fillIP(ip)
 			} else {
-				return nil, nil, errors.New("Address not in IP nor CIDR format:" + rangs[rang])
+				return nil, nil, errors.New("The entry is not an IP nor a range of addresses in CIDR format:" + rangs[rang])
 			}
 		}
 
 	}
-
+	// Force paralel connections
 	if parallelconnections <= 0 {
 		parallelconnections = paralel
 	}
 
-	timeoutDuration, err := time.ParseDuration(timeout)
-	if err != nil {
-		return nil, nil, errors.New("Incorrect timeout")
-	}
-
-	ips.testAliveHosts(port, parallelconnections, timeoutDuration)
+	ips.checkAliveHosts(port, parallelconnections, timeoutDuration)
 
 	return ips.alive, ips.fail, nil
 }
