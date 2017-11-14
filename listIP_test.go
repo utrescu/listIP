@@ -1,6 +1,7 @@
 package listIP
 
 import (
+	"errors"
 	"net"
 	"testing"
 	"time"
@@ -44,13 +45,21 @@ func TestIFFillIPIgnoresBadIPs(t *testing.T) {
 	}
 }
 
-// ============= Testing fillNetwork() ========================================
+// ============= Testing fillNetwork() ====================================
 
 // TestIfFillCIDRFillsCorrectIPs test the method with correct data
 func TestIfFillCIDRFillsCorrectIPs(t *testing.T) {
-	addresses := []string{"192.168.0.1/30", "192.168.88.0/29", "192.168.10.23/32", "192.168.9.1/31"}
 
-	results := []int{2, 6, 1, 0}
+	var tests = []struct {
+		origin   string
+		expected int
+	}{
+		{"192.168.0.1/30", 2},
+		{"192.168.88.0/29", 6},
+		{"192.168.10.23/32", 1},
+		{"192.168.9.1/31", 0},
+	}
+
 	resultIP := []net.IP{
 		net.ParseIP("192.168.0.1"), net.ParseIP("192.168.0.2"),
 		net.ParseIP("192.168.88.1"), net.ParseIP("192.168.88.2"),
@@ -62,10 +71,10 @@ func TestIfFillCIDRFillsCorrectIPs(t *testing.T) {
 	var llista IPList
 
 	sumIP := 0
-	for index, address := range addresses {
-		ip, ipnet, _ := net.ParseCIDR(address)
+	for _, address := range tests {
+		ip, ipnet, _ := net.ParseCIDR(address.origin)
 		llista.fillNetwork(ip, ipnet)
-		sumIP = sumIP + results[index]
+		sumIP = sumIP + address.expected
 		if len(llista.ip) != sumIP {
 			t.Errorf("Number of IP, %d, and expected are %d: %s", len(llista.ip), sumIP, llista.ip)
 			break
@@ -86,21 +95,37 @@ func TestIfFillCIDRFillsCorrectIPs(t *testing.T) {
 	}
 }
 
-// ============= Testing checkAliveHosts() ========================================
+// ============= Testing checkAliveHosts() ============================
 
+var ipError = net.ParseIP("192.168.99.1")
+var noIPError = net.ParseIP("192.168.0.1")
+var noIPError2 = net.ParseIP("192.168.0.2")
+var noIPError3 = net.ParseIP("192.168.0.3")
+
+// TestIfAliveHostsWorksWithIPs checks results of IPs
 func TestIfAliveHostsWorksWithIPs(t *testing.T) {
 
-	listIP := [][]net.IP{
-		{net.ParseIP("192.168.0.1"), net.ParseIP("192.168.0.2"),
-			net.ParseIP("192.168.88.1"), net.ParseIP("192.168.88.2"),
-			net.ParseIP("192.168.88.3"), net.ParseIP("192.168.88.4"),
-			net.ParseIP("192.168.88.5"), net.ParseIP("192.168.88.6"),
-			net.ParseIP("192.168.10.23")},
+	var tests = []struct {
+		net      []net.IP
+		expected int
+	}{
+		{
+			[]net.IP{net.ParseIP("192.168.0.1"), net.ParseIP("192.168.0.2"),
+				net.ParseIP("192.168.88.1"), net.ParseIP("192.168.88.2"),
+				net.ParseIP("192.168.88.3"), net.ParseIP("192.168.88.4"),
+				net.ParseIP("192.168.88.5"), net.ParseIP("192.168.88.6"),
+				net.ParseIP("192.168.10.23"), net.ParseIP("192.168.25.1"),
+				net.ParseIP("192.168.25.2")}, 11},
 		// ----------------------
-		{net.ParseIP("192.168.0.1")},
+		{[]net.IP{noIPError}, 1},
 		// ----------------------
-		{net.ParseIP("192.168.0.1"), net.ParseIP("192.168.0.2"),
-			net.ParseIP("192.168.0.3")},
+		{[]net.IP{noIPError, noIPError2, noIPError3}, 3},
+		// --- One not works
+		{[]net.IP{noIPError, ipError, noIPError}, 2},
+		// --- None works
+		{[]net.IP{ipError, ipError, ipError}, 0},
+		// --- Only last works
+		{[]net.IP{ipError, ipError, noIPError}, 1},
 	}
 
 	aliveOld := alive
@@ -109,16 +134,20 @@ func TestIfAliveHostsWorksWithIPs(t *testing.T) {
 	}()
 
 	alive = func(ip net.IP, port int, timeout time.Duration, messages chan string, errc chan error) {
-		messages <- ip.String()
+		if ip.Equal(ipError) {
+			errc <- errors.New("Failed")
+		} else {
+			messages <- ip.String()
+		}
 	}
 
-	for _, oneIP := range listIP {
+	for _, oneIP := range tests {
 		var llista IPList
-		llista.ip = oneIP
+		llista.ip = oneIP.net
 		llista.checkAliveHosts(22, 10, 100*time.Millisecond)
 
-		if len(llista.alive) != len(oneIP) {
-			t.Errorf("Have %d host and expect %d", len(llista.alive), len(oneIP))
+		if len(llista.alive) != oneIP.expected {
+			t.Errorf("Have %d host and expect %d", len(llista.alive), oneIP.expected)
 		}
 	}
 }
@@ -126,7 +155,7 @@ func TestIfAliveHostsWorksWithIPs(t *testing.T) {
 // ============= Testing CHECK() ========================================
 
 // -------------------  Test Check with incorrect dada ...
-var iptests = []struct {
+var tests = []struct {
 	networks []string
 	expected int
 }{
@@ -149,8 +178,8 @@ func TestIfCheckWorksWithCorrectData(t *testing.T) {
 		messages <- ip.String()
 	}
 
-	for _, data := range iptests {
-		result, _, err := Check(data.networks, 22, 10, "100ms")
+	for _, data := range tests {
+		result, _, err := Check(data.networks, 22, 500, "5ms")
 		if err != nil {
 			t.Errorf("Check must not give error with %s", data.networks)
 		}
@@ -168,17 +197,26 @@ var errortests = []struct {
 	duration string
 	resultat bool
 }{
-	{[]string{"192.168.0.2"}, 22, 1, "20ms", false},
-	{[]string{"192.168.0.2/24"}, 22, 1, "20ms", false},
+	{[]string{"192.168.0.2"}, 22, 1, "5ms", false},
+	{[]string{"192.168.0.2/24"}, 22, 1, "5ms", false},
 	{[]string{"192.168.0.2"}, 22, 1, "xxx", true},
-	{[]string{"192.168.0.2"}, -1, 1, "20ms", true},
-	{[]string{"192.168.0.2"}, 22, -1, "20ms", false},
-	{nil, 22, 10, "20ms", true},
+	{[]string{"192.168.0.2"}, -1, 1, "5ms", true},
+	{[]string{"192.168.0.2"}, 22, -1, "5ms", false},
+	{nil, 22, 10, "5ms", true},
 	{[]string{"344444444444"}, 22, 1, "20ms", true},
 }
 
 // TestIfCheckWorksWithIncorrectData checks if providing incorrect data gives error
 func TestIfCheckWorksWithIncorrectData(t *testing.T) {
+
+	aliveOld := alive
+	defer func() {
+		alive = aliveOld
+	}()
+
+	alive = func(ip net.IP, port int, timeout time.Duration, messages chan string, errc chan error) {
+		messages <- ip.String()
+	}
 
 	for _, test := range errortests {
 		_, _, err := Check(test.networks, test.port, test.paralel, test.duration)
