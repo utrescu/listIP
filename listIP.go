@@ -2,7 +2,7 @@ package listIP
 
 import (
 	"encoding/binary"
-	"log"
+	"errors"
 	"net"
 	"strconv"
 	"time"
@@ -75,7 +75,7 @@ func (n *IPList) testAliveHosts(port int, parallelconnections int, timeout time.
 	messages, errc := make(chan string, numHosts), make(chan error, numHosts)
 
 	for i := 0; i < numHosts; i++ {
-		go isAlive(n.ip[i], port, timeout, messages, errc)
+		go alive(n.ip[i], port, timeout, messages, errc)
 		if i%parallelconnections == 0 {
 			time.Sleep(timeout)
 		}
@@ -98,12 +98,15 @@ func (n *IPList) testAliveHosts(port int, parallelconnections int, timeout time.
 	n.fail = faileds
 }
 
+var dial = net.DialTimeout
+var alive = isAlive
+
 // isAlive : test if a IP answers in a port
 func isAlive(ip net.IP, port int, timeout time.Duration, messages chan string, errc chan error) {
 
 	connexio := ip.String() + ":" + strconv.Itoa(port)
 
-	conn, err := net.DialTimeout("tcp", connexio, timeout)
+	conn, err := dial("tcp", connexio, timeout)
 	if err != nil {
 		errc <- err
 		return
@@ -132,7 +135,7 @@ returns:
   - list of alive hosts
   - list of failed hosts
 */
-func Check(rangs []string, port int, parallelconnections int, timeout string) ([]string, []string) {
+func Check(rangs []string, port int, parallelconnections int, timeout string) ([]string, []string, error) {
 	var ips IPList
 
 	for rang := range rangs {
@@ -144,7 +147,7 @@ func Check(rangs []string, port int, parallelconnections int, timeout string) ([
 			if ip != nil {
 				ips.fillIP(ip)
 			} else {
-				log.Fatal("Address not in IP nor CIDR format:", rangs[rang])
+				return nil, nil, errors.New("Address not in IP nor CIDR format:" + rangs[rang])
 			}
 		}
 
@@ -156,10 +159,10 @@ func Check(rangs []string, port int, parallelconnections int, timeout string) ([
 
 	timeoutDuration, err := time.ParseDuration(timeout)
 	if err != nil {
-		log.Fatal("Incorrect timeout")
+		return nil, nil, errors.New("Incorrect timeout")
 	}
 
 	ips.testAliveHosts(port, parallelconnections, timeoutDuration)
 
-	return ips.alive, ips.fail
+	return ips.alive, ips.fail, nil
 }
